@@ -1,4 +1,4 @@
-name: CI — Lockfile Integrity
+name: CI
 
 on:
   push:
@@ -7,6 +7,44 @@ on:
     branches: [main]
 
 jobs:
+  lint-format:
+    name: ESLint & Prettier Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint (frontend)
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Prettier check (frontend)
+        working-directory: ./frontend
+        run: npx prettier --check .
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run ESLint (backend)
+        working-directory: ./backend
+        run: npm run lint
+
+      - name: Run Prettier check (backend)
+        working-directory: ./backend
+        run: npx prettier --check .
+
   lockfile-integrity:
     name: Verify Lockfile Integrity
     runs-on: ubuntu-latest
@@ -23,14 +61,15 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Verify frontend lockfile (npm ci --dry-run)
+      - name: Verify frontend lockfile
         working-directory: ./frontend
         run: npm ci --dry-run
 
-      - name: Verify backend lockfile (npm ci --dry-run)
+      - name: Verify backend lockfile
         working-directory: ./backend
         run: npm ci --dry-run
 
-      - name: Verify Cargo lockfile (cargo check --locked)
+      - name: Verify Cargo lockfile
         working-directory: ./soroban
         run: cargo check --locked
+`
