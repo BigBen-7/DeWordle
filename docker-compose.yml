@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # PostgreSQL database
   db:
     image: postgres:16-alpine
     container_name: dewordle-db
@@ -17,10 +18,11 @@ services:
       - dewordle-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dewordle}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
+  # Redis cache
   redis:
     image: redis:7-alpine
     container_name: dewordle-redis
@@ -31,10 +33,11 @@ services:
       - dewordle-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
-      retries: 3
+      retries: 5
 
+  # NestJS backend API
   backend:
     build:
       context: ./backend
@@ -55,9 +58,13 @@ services:
       DATABASE_URL: postgres://${DB_USER:-dewordle}:${DB_PASSWORD:-dewordle_secret}@db:5432/${DB_NAME:-dewordle}
       REDIS_URL: redis://redis:6379
       NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
+    env_file:
+      - ./backend/.env.local
     networks:
       - dewordle-net
 
+  # Next.js frontend
   frontend:
     build:
       context: ./frontend
@@ -71,9 +78,23 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3001}
       NODE_ENV: development
+    networks:
+      - dewordle-net
+
+  # Stellar Soroban RPC local standalone testnet
+  soroban-rpc:
+    image: stellar/quickstart:latest
+    container_name: dewordle-soroban-rpc
+    restart: unless-stopped
+    command: --standalone --enable-soroban-rpc
+    ports:
+      - "8000:8000"
+    environment:
+      NETWORK: standalone
     networks:
       - dewordle-net
 

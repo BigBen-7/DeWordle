@@ -1,0 +1,36 @@
+name: CI — Lockfile Integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lockfile-integrity:
+    name: Verify Lockfile Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify frontend lockfile (npm ci --dry-run)
+        working-directory: ./frontend
+        run: npm ci --dry-run
+
+      - name: Verify backend lockfile (npm ci --dry-run)
+        working-directory: ./backend
+        run: npm ci --dry-run
+
+      - name: Verify Cargo lockfile (cargo check --locked)
+        working-directory: ./soroban
+        run: cargo check --locked

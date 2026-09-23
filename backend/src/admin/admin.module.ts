@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { AdminService } from './admin.service';
-import { AdminController } from './admin.controller';
+import { AdminQueuesController } from './admin-queues.controller';
+import { JobModule } from '../common/job.module';
 
 @Module({
-  controllers: [AdminController],
-  providers: [AdminService],
+  imports: [JobModule],
+  controllers: [AdminQueuesController],
 })
 export class AdminModule {}

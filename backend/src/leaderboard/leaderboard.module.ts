@@ -1,17 +1,14 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { LeaderboardEntry } from './leaderboard-entry.entity';
 import { LeaderboardService } from './leaderboard.service';
 import { LeaderboardController } from './leaderboard.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Leaderboard } from './entities/leaderboard.entity';
-import { UsersModule } from 'src/users/users.module';
+import { Game } from '../games/entities/game.entity';
 
 @Module({
-  imports: [
-    forwardRef(() => UsersModule),
-    TypeOrmModule.forFeature([Leaderboard]),
-  ],
-  controllers: [LeaderboardController],
+  imports: [TypeOrmModule.forFeature([LeaderboardEntry, Game])],
   providers: [LeaderboardService],
-  exports: [LeaderboardService, TypeOrmModule],
+  controllers: [LeaderboardController],
+  exports: [LeaderboardService],
 })
 export class LeaderboardModule {}

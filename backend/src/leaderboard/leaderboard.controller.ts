@@ -1,47 +1,42 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
-import { CreateLeaderboardDto } from './dto/create-leaderboard.dto';
-import { UpdateLeaderboardDto } from './dto/update-leaderboard.dto';
+import { Game } from '../games/entities/game.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { type Repository } from 'typeorm';
 
 @Controller('leaderboard')
 export class LeaderboardController {
-  constructor(private readonly leaderboardService: LeaderboardService) {}
+  constructor(
+    private readonly leaderboardService: LeaderboardService,
+    @InjectRepository(Game)
+    private readonly gameRepository: Repository<Game>,
+  ) {}
 
-  @Post()
-  async createleadboard(@Body() createLeaderboardDto: CreateLeaderboardDto) {
-    return await this.leaderboardService.createLeaderboard(
-      createLeaderboardDto,
+  @Get('global')
+  async getGlobalLeaderboard(
+    @Query('skip') skip = 0,
+    @Query('take') take = 20,
+  ) {
+    return this.leaderboardService.getGlobalLeaderboard(
+      Number(skip),
+      Number(take),
     );
   }
 
-  @Get()
-  findAll() {
-    return this.leaderboardService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.leaderboardService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateLeaderboardDto: UpdateLeaderboardDto,
+  @Get(':gameSlug')
+  async getGameLeaderboard(
+    @Param('gameSlug') gameSlug: string,
+    @Query('skip') skip = 0,
+    @Query('take') take = 20,
   ) {
-    return this.leaderboardService.update(+id, updateLeaderboardDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.leaderboardService.remove(+id);
+    const game = await this.gameRepository.findOne({
+      where: { slug: gameSlug },
+    });
+    if (!game) return [];
+    return this.leaderboardService.getGameLeaderboard(
+      game,
+      Number(skip),
+      Number(take),
+    );
   }
 }

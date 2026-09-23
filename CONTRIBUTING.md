@@ -1,91 +1,61 @@
 # Contributing to DeWordle
 
-Thank you for your interest in contributing to DeWordle! This guide will help you get started and while you are here do well to join our Telegram at [DeWordle](https://t.me/+GNI5Wz3xioZhYzE8).
+Thanks for contributing to the Soroban migration.
 
-### Important Note Before Applying 📝  
-⚠️ **Avoid Generic Comments:** Comments such as 🚫 
-"Can I help with this?" 🚫 
-"I’d love to contribute!" 🚫 
-"Check out my profile!" or 🚫 
-"Can I work on this?"... these will not be considered.  
+## 📋 Critical First Step: Review the Repository Surface Map
+Before starting any work, **all contributors must review the [Repository Surface Map](./docs/REPO_SURFACE_MAP.md)** which defines our canonical maintained surfaces, transitional codebases, and legacy code. This single source of truth will guide you to the correct code paths for your contributions.
 
-Instead, provide a **clear explanation of your approach**, which includes:  
+## Workstream Model
+Contributors are encouraged to work in parallel across our **maintained canonical surfaces**:
+- Soroban contracts (`soroban/contracts`)
+- Shared crates (`soroban/crates`)
+- SDK (`soroban/sdk/ts`)
+- Frontend wallet integration (`frontend/src/lib/stellar`)
+- Backend indexer (`backend/src/indexer`)
+- Documentation and testing (`docs/`, `soroban/tests`)
+- CI/CD & infrastructure (`/.github/workflows/`, `/scripts/`)
 
-- A brief introduction about yourself.  
-- A concise plan outlining how you will address the issue (3–6 lines max).  
-- Your estimated completion time (ETA).
+## Setup & Validation Commands
+Use the appropriate validation commands for your surface to ensure you're running the correct tests:
 
-## What is DeWordle?
+### Maintained Surfaces (Always Passing in CI)
+```bash
+# Install all dependencies
+npm run install:all
 
-DeWordle is a decentralized, blockchain-based word-guessing game built on the StarkNet ecosystem. It merges the fun and challenge of Wordle with the transparency and security of blockchain technology.
+# Soroban contracts and crates
+cd soroban && cargo check --workspace && cargo test --workspace
 
-## Features
+# Backend indexer (maintained backend surface)
+cd backend && npm run lint:ci && npm run test:ci -- src/indexer/
 
-- **Daily Decentralized Word Challenges**: A new word is generated every day and stored securely on-chain.
-- **Transparent Gameplay**: Game logic is stored on the blockchain, ensuring fair and verifiable outcomes.
-- **Wallet Integration**: Compatible with StarkNet wallets like Argent X for gameplay interactions.
-- **On-Chain Rewards**: Players earn tokens or NFTs for successful guesses or streaks.
-- **Leaderboards**: Track top players with a decentralized leaderboard.
+# Frontend wallet and Soroban integration
+cd frontend && npm run lint:ci && npm run test:ci -- src/lib/stellar src/lib/soroban
 
-How to Contribute🤝
-1. Apply for an Issue
--Look for an open issue and comment expressing your interest in working on it.
--Wait for the maintainer to assign the issue to you.
--Remember to apply only if you can solve the issue.
-Again, In the comment, Add a quick introduction about yourself, The ETA, and how you plan to tackle the issue.
+# Documentation and script validation
+node scripts/contributor-bootstrap.test.js
+```
 
-## Setup Instructions
+### Transitional Surfaces (Critical Fixes Only)
+```bash
+# Only use if you're working on critical bug fixes for transitional code
+cd backend && npm run start:dev  # Legacy backend development
+cd frontend && npm run dev       # Legacy frontend development
+```
 
-1. Fork the repository.
+### Legacy Surfaces (DO NOT USE)
+The `/onchain/` directory contains outdated legacy code and is no longer maintained. PRs targeting these surfaces will be automatically redirected.
 
-2.  Clone your fork locally:
+## PR Requirements
+- Keep scope narrow and issue-linked.
+- Identify the correct track in your PR description using the ownership map
+- Assign yourself as the PR author and request review from the primary track maintainers
+- Add docs for new architecture or APIs in the `/docs/` directory
+- Include tests where behavior changes - all PRs must pass CI
+- Follow the PR template and complete the checklist
 
-   ```bash
-   git clone https://github.com/your-username/dewordle.git
-   cd dewordle
-   ```
+## Wave Readiness
+Use `docs/WAVE_MIGRATION_ISSUE_CANDIDATES.md` and `docs/SOROBAN_GITHUB_STRATEGY.md` for issue slicing and labels.
 
-3. In your forked repo, Create a new branch:
-
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-4. Make your changes
-
-5.  Commit with clear messages:
-
-   ```bash
-   git commit -m "Add: brief description of changes"
-   ```
-
-6. Push to your fork:
-
-   ```bash
-   git push origin feature-name
-   ```
-
-7. Submit a Pull Request that properly describes your changes
-
-
-## Code of Conduct
-
-- Follow ethical coding practices.
-- Do not submit a Pull request unless you are assigned.
-- Tasks must be completed within the specified deadline.
-- Always reach out to the maintainer if you get stuck.
-- Ensure all tests pass.
-- Request reviews from maintainers, when you submit a PR.
-
-
-
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Contact
-
-For inquiries, reach out to us on Telegram at [https://t.me/DeWordle](https://t.me/+GNI5Wz3xioZhYzE8).
-
----
+## Issue Handoff
+If you need to hand off partially completed work, use the [Issue Handoff Checklist](./.github/ISSUE_TEMPLATE/handoff_checklist.yml) template and follow the [Handoff Process](./docs/wave/HANDOFF_CHECKLIST.md).

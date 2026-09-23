@@ -1,53 +1,86 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { CreateLeaderboardDto } from './dto/create-leaderboard.dto';
-import { UpdateLeaderboardDto } from './dto/update-leaderboard.dto';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Leaderboard } from './entities/leaderboard.entity';
-import { UsersService } from 'src/users/users.service';
+import { type Repository } from 'typeorm';
+import { LeaderboardEntry } from './leaderboard-entry.entity';
+import { type User } from '../auth/entities/user.entity';
+import { type Game } from '../games/entities/game.entity';
 
 @Injectable()
 export class LeaderboardService {
+  // Logger removed for production cleanliness
   constructor(
-    @InjectRepository(Leaderboard)
-    private leaderboardRepository: Repository<Leaderboard>,
-
-    @Inject(forwardRef(() => UsersService))
-    private readonly userServices: UsersService,
+    @InjectRepository(LeaderboardEntry)
+    private leaderboardRepository: Repository<LeaderboardEntry>,
   ) {}
-  async createLeaderboard(
-    createLeaderboardDto: CreateLeaderboardDto,
-  ): Promise<Leaderboard> {
-    const user = await this.userServices.findOneById(
-      createLeaderboardDto.userId,
-    );
+
+  async upsertEntry(user: User, game: Game, score: number, win: boolean) {
     if (!user) {
-      throw new Error('User not found');
+      return;
     }
-    const leaderboardEntry = this.leaderboardRepository.create({
-      ...createLeaderboardDto,
-      user,
-    });
-    return this.leaderboardRepository.save(leaderboardEntry);
+    try {
+      let entry = await this.leaderboardRepository.findOne({
+        where: { user, game },
+      });
+      if (!entry) {
+        entry = this.leaderboardRepository.create({
+          user,
+          game,
+          totalScore: score,
+          wins: win ? 1 : 0,
+          totalSessions: 1,
+        });
+      } else {
+        entry.totalScore += score;
+        entry.wins += win ? 1 : 0;
+        entry.totalSessions += 1;
+      }
+      return await this.leaderboardRepository.save(entry);
+    } catch {
+      throw new InternalServerErrorException('Could not update leaderboard');
+    }
   }
 
-  create(_createLeaderboardDto: CreateLeaderboardDto) {
-    return 'This action adds a new leaderboard';
+  async getGameLeaderboard(game: Game, skip = 0, take = 20) {
+    if (!game) throw new NotFoundException('Game not found');
+    try {
+      return await this.leaderboardRepository.find({
+        where: { game },
+        order: { totalScore: 'DESC', lastUpdated: 'DESC' },
+        skip: Math.max(0, Number(skip)),
+        take: Math.max(1, Math.min(Number(take), 100)), // limit page size
+        relations: ['user'],
+      });
+    } catch {
+      throw new InternalServerErrorException(
+        'Could not fetch game leaderboard',
+      );
+    }
   }
 
-  findAll() {
-    return `This action returns all leaderboard`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} leaderboard`;
-  }
-
-  update(id: number, _updateLeaderboardDto: UpdateLeaderboardDto) {
-    return `This action updates a #${id} leaderboard`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} leaderboard`;
+  async getGlobalLeaderboard(skip = 0, take = 20) {
+    try {
+      const qb = this.leaderboardRepository
+        .createQueryBuilder('entry')
+        .innerJoin('entry.user', 'user') // Only include entries with a user
+        .select('user.id', 'userId')
+        .addSelect('SUM(entry.totalScore)', 'totalScore')
+        .addSelect('SUM(entry.wins)', 'wins')
+        .addSelect('SUM(entry.totalSessions)', 'totalSessions')
+        .addSelect('MAX(entry.lastUpdated)', 'lastUpdated')
+        .groupBy('user.id')
+        .orderBy('SUM(entry.totalScore)', 'DESC')
+        .addOrderBy('MAX(entry.lastUpdated)', 'DESC')
+        .offset(Math.max(0, Number(skip)))
+        .limit(Math.max(1, Math.min(Number(take), 100)));
+      return await qb.getRawMany();
+    } catch {
+      throw new InternalServerErrorException(
+        'Could not fetch global leaderboard',
+      );
+    }
   }
 }
