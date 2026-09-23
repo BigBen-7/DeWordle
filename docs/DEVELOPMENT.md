@@ -26,7 +26,7 @@ After the first start (or after resetting the volume), run migrations:
 cd backend && npm run typeorm:migration:run
 ```
 
-See [docs/LOCAL_INFRA_STACK.md](./LOCAL_INFRA_STACK.md) for the full profile
+See the `docker-compose.yml` file for the full profile
 reference, environment variable table, and known limitations.
 
 ---
@@ -107,6 +107,13 @@ same order, before pushing.
 
 The script exits non-zero and prints a summary of every failed step, so you
 can see all failures at once rather than stopping at the first one.
+
+### GitHub Workflows and Badges Mapping
+The local verification subsets correspond directly to the workflows run by GitHub Actions in CI:
+- `./scripts/ci-local.sh frontend` runs the exact checks triggered by `.github/workflows/maintained-frontend.yml` (Frontend Status badge).
+- `./scripts/ci-local.sh backend` runs the exact checks triggered by `.github/workflows/maintained-backend.yml` (Backend Status badge).
+- `./scripts/ci-local.sh soroban` runs the exact checks triggered by `.github/workflows/maintained-soroban.yml` (Soroban Validation Status badge).
+
 
 **Prerequisites:** Node 20+, npm, Rust stable with `wasm32-unknown-unknown`
 target (`rustup target add wasm32-unknown-unknown`).

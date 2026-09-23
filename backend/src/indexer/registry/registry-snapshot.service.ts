@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RegistrySnapshotEntity } from '../entities/registry-snapshot.entity';
+import { AuditTrailService } from '../audit-trail.service';
+import { AuditAction } from '../entities/audit-trail.entity';
 
 export interface RegistrySnapshotInput {
   network: string;
@@ -17,13 +19,9 @@ export class RegistrySnapshotService {
   constructor(
     @InjectRepository(RegistrySnapshotEntity)
     private readonly snapshotRepo: Repository<RegistrySnapshotEntity>,
+    private readonly auditService: AuditTrailService,
   ) {}
 
-  /**
-   * Persists (or updates) the registry snapshot for the given network and
-   * contract. Safe to call on every successful registry fetch — subsequent
-   * calls simply advance the ledger watermark.
-   */
   async save(input: RegistrySnapshotInput): Promise<RegistrySnapshotEntity> {
     const existing = await this.snapshotRepo.findOne({
       where: { network: input.network, contractId: input.contractId },
@@ -34,10 +32,22 @@ export class RegistrySnapshotService {
       network: input.network,
       contractId: input.contractId,
       registry: input.registry,
-      capturedAtLedger: input.capturedAtLedger ?? existing?.capturedAtLedger ?? 0,
+      capturedAtLedger:
+        input.capturedAtLedger ?? existing?.capturedAtLedger ?? 0,
     });
 
     const saved = await this.snapshotRepo.save(snapshot);
+
+    await this.auditService.log({
+      action: AuditAction.REGISTRY_CHANGE,
+      actor: 'indexer',
+      network: input.network,
+      targetResource: input.contractId,
+      details: {
+        capturedAtLedger: saved.capturedAtLedger,
+        registryKeys: Object.keys(input.registry),
+      },
+    });
 
     this.logger.log({
       msg: 'indexer.registry_snapshot.saved',
@@ -49,10 +59,6 @@ export class RegistrySnapshotService {
     return saved;
   }
 
-  /**
-   * Returns the latest known registry snapshot for the given network and
-   * contract, or null if none has been persisted yet.
-   */
   async getLatest(
     network: string,
     contractId: string,
@@ -63,9 +69,6 @@ export class RegistrySnapshotService {
     });
   }
 
-  /**
-   * Returns all snapshots for a network (useful for diagnostics).
-   */
   async listByNetwork(network: string): Promise<RegistrySnapshotEntity[]> {
     return this.snapshotRepo.find({
       where: { network },

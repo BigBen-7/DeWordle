@@ -3,6 +3,7 @@ import { EventNormalizerService } from './processors/event-normalizer.service';
 import { EventProcessorService } from './processors/event-processor.service';
 import { CursorService } from './projections/cursor.service';
 import { ReplayAlertService } from './queue/replay-alert.service';
+import { EventDedupService } from './dedup/event-dedup.service';
 import { ConfigService } from '@nestjs/config';
 import { INDEXER_STREAM_CORE_GAME } from './indexer.constants';
 
@@ -38,15 +39,20 @@ const makeService = (overrides: {
     process: jest.fn().mockResolvedValue(true),
   } as unknown as EventProcessorService;
 
+  const eventDedupService = {
+    isDuplicate: jest.fn().mockResolvedValue(false),
+  } as unknown as EventDedupService;
+
   const svc = new IndexerService(
     eventProcessor,
     new EventNormalizerService(),
     cursorService,
     { get: configGet } as unknown as ConfigService,
     new ReplayAlertService(),
+    eventDedupService,
   );
 
-  return { svc, cursorService, eventProcessor };
+  return { svc, cursorService, eventProcessor, eventDedupService };
 };
 
 describe('IndexerService.getLagSnapshot', () => {
@@ -152,17 +158,15 @@ describe('IndexerService.poll', () => {
       contractId: 'CABC',
     });
 
-    jest
-      .spyOn(svc, 'fetchEvents')
-      .mockResolvedValue([
-        {
-          contractId: '',
-          topic: 'session_finalized',
-          txHash: 'tx1',
-          ledger: 5,
-          eventIndex: 0,
-        },
-      ]);
+    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
+      {
+        contractId: '',
+        topic: 'session_finalized',
+        txHash: 'tx1',
+        ledger: 5,
+        eventIndex: 0,
+      },
+    ]);
 
     const count = await svc.poll();
     expect(count).toBe(0);
@@ -253,13 +257,47 @@ describe('IndexerService.poll', () => {
       contractId: 'CABC',
     });
 
-    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
-      null as unknown as Record<string, unknown>,
-      'garbage' as unknown as Record<string, unknown>,
-    ]);
+    jest
+      .spyOn(svc, 'fetchEvents')
+      .mockResolvedValue([
+        null as unknown as Record<string, unknown>,
+        'garbage' as unknown as Record<string, unknown>,
+      ]);
 
     const count = await svc.poll();
     expect(count).toBe(0);
     expect(eventProcessor.process).not.toHaveBeenCalled();
+  });
+
+  it('skips duplicate events without processing or checkpointing', async () => {
+    const { svc, eventProcessor, cursorService, eventDedupService } =
+      makeService({
+        rpcUrl: 'http://rpc',
+        contractId: 'CABC',
+      });
+
+    const dedup = eventDedupService as unknown as {
+      isDuplicate: jest.Mock;
+    };
+    dedup.isDuplicate.mockResolvedValue(true);
+
+    const event = {
+      network: 'testnet' as const,
+      streamKey: INDEXER_STREAM_CORE_GAME,
+      topic: 'session_finalized',
+      contractId: 'CABC',
+      txHash: 'tx-dup',
+      ledger: 9,
+      eventIndex: 3,
+      payload: {},
+      observedAt: new Date(),
+    };
+
+    await svc.ingest(event);
+
+    expect(dedup.isDuplicate).toHaveBeenCalledWith('tx-dup', 3);
+    expect(eventProcessor.process).not.toHaveBeenCalled();
+    expect(cursorService.checkpoint).not.toHaveBeenCalled();
+    expect(svc.metrics.ingestedTotal).toBe(0);
   });
 });
