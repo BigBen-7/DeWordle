@@ -85,6 +85,19 @@ services:
     networks:
       - dewordle-net
 
+  # Stellar Soroban RPC local standalone testnet
+  soroban-rpc:
+    image: stellar/quickstart:latest
+    container_name: dewordle-soroban-rpc
+    restart: unless-stopped
+    command: --standalone --enable-soroban-rpc
+    ports:
+      - "8000:8000"
+    environment:
+      NETWORK: standalone
+    networks:
+      - dewordle-net
+
 networks:
   dewordle-net:
     driver: bridge
